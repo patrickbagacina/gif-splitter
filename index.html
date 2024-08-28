@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>GIF Split</title>
+    <link rel="stylesheet" href="index.css" />
+  </head>
+  <body>
+    <form id="form">
+      <input type="file" id="file" style="display: none;" />
+      <button id="uploadButton" type="button">Upload Image File</button>
+    </form>
+    <div id="gif"></div>
+    <form id="form2">
+        <label for="rows" class="form-label">Rows:</label>
+        <input type="number" id="rows" placeholder="Rows" />
+        
+        <label for="cols" class="form-label">Columns:</label>
+        <input type="number" id="cols" placeholder="Cols" />
+        <button type="submit">Split Image</button>
+    </form>
+    <div id="split"></div>
+    <script src="index.js"></script>
+  </body>
+</html>
