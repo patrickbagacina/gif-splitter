@@ -1,8 +1,8 @@
 const express = require("express");
 const multer = require("multer");
-const gifFrames = require("gif-frames");
-const GIFEncoder = require("gifencoder");
-const { createCanvas } = require("canvas");
+const GIFEncoder = require("gif-encoder");
+const GIFDecoder = require("gif-decoder");
+const { createCanvas, loadImage } = require("canvas");
 const fs = require("fs");
 const path = require("path");
 
@@ -17,16 +17,19 @@ app.post("/split-gif", upload.single("gif"), async (req, res) => {
   const filePath = req.file.path;
 
   try {
-    // Extract frames from the GIF
-    const frames = await gifFrames({ url: filePath, frames: "all", outputType: "canvas" });
-    const frameWidth = frames[0].frameInfo.width;
-    const frameHeight = frames[0].frameInfo.height;
+    // Decode the GIF
+    const gif = new GIFDecoder(fs.readFileSync(filePath));
+    const frameWidth = gif.width;
+    const frameHeight = gif.height;
     const partWidth = frameWidth / cols;
     const partHeight = frameHeight / rows;
 
     const parts = [];
 
-    for (let frame of frames) {
+    for (let i = 0; i < gif.frameCount(); i++) {
+      const frame = gif.frameInfo(i);
+      const imageData = gif.decodeAndBlitFrameRGBA(i);
+
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           // Create a new GIF encoder for each part
@@ -40,12 +43,24 @@ app.post("/split-gif", upload.single("gif"), async (req, res) => {
           // Set the repeat mode (0 = loop indefinitely)
           encoder.setRepeat(0);
           // Set the delay between frames
-          encoder.setDelay(frame.frameInfo.delay);
+          encoder.setDelay(frame.delay * 10); // Convert to milliseconds
           // Set the quality of the GIF
           encoder.setQuality(10);
 
           // Draw the part of the image onto the canvas
-          ctx.drawImage(frame.getImage(), -c * partWidth, -r * partHeight);
+          const imageDataPart = ctx.createImageData(partWidth, partHeight);
+          for (let y = 0; y < partHeight; y++) {
+            for (let x = 0; x < partWidth; x++) {
+              const srcIndex = ((r * partHeight + y) * frameWidth + (c * partWidth + x)) * 4;
+              const destIndex = (y * partWidth + x) * 4;
+              imageDataPart.data[destIndex] = imageData[srcIndex];
+              imageDataPart.data[destIndex + 1] = imageData[srcIndex + 1];
+              imageDataPart.data[destIndex + 2] = imageData[srcIndex + 2];
+              imageDataPart.data[destIndex + 3] = imageData[srcIndex + 3];
+            }
+          }
+          ctx.putImageData(imageDataPart, 0, 0);
+
           // Add the canvas as a frame to the encoder
           encoder.addFrame(ctx);
           // Finish the encoding process
